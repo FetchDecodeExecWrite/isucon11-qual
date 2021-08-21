@@ -1253,7 +1253,7 @@ func postIsuCondition(c echo.Context) error {
 		} else {
 			sqlStr += ","
 		}
-		sqlStr += "(?, ?, ?)"
+		sqlStr += "(?, ?, ?, ?, ?)"
 	}
 
 	tx, err := db.Beginx()
