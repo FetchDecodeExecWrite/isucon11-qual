@@ -21,6 +21,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
+
 	// echopprof "github.com/hiko1129/echo-pprof"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
@@ -1288,7 +1289,7 @@ func postIsuCondition(c echo.Context) error {
 		return c.NoContent(http.StatusAccepted)
 	}
 
-	onlyInfoProbability := 0.9
+	onlyInfoProbability := 0.8
 	onlyInfo := rand.Float64() <= onlyInfoProbability
 
 	jiaIsuUUID := c.Param("jia_isu_uuid")
