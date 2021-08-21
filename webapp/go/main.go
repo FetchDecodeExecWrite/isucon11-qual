@@ -913,13 +913,13 @@ func calculateGraphDataPoint(isuConditions []IsuCondition) (GraphDataPoint, erro
 		// 		badConditionsCount++
 		// 	}
 		// }
-		if condition.CondDirty {
+		if condition.CondBroken {
 			conditionsCount["is_broken"]++
 		}
 		if condition.CondOverweight {
 			conditionsCount["is_overweight"]++
 		}
-		if condition.CondBroken {
+		if condition.CondDirty {
 			conditionsCount["is_dirty"]++
 		}
 
