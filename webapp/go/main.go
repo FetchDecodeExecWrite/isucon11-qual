@@ -21,7 +21,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
-	"github.com/hiko1129/echo-pprof"
+	echopprof "github.com/hiko1129/echo-pprof"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -706,8 +706,8 @@ func getIsuIcon(c echo.Context) error {
 
 	c.Response().Header().Set("Cache-Control", "public, must-revalidate, proxy-revalidate, max-age=10000000")
 	c.Response().Header().Set("ETag", jiaIsuUUID)
-	c.Response().Header().Set("Last-Modified", "Mon, 16 Oct 2020 16:33:02 GMT")
 	if c.Request().Header.Get("If-Modified-Since") != "" || c.Request().Header.Get("If-None-Match") != "" {
+		c.Response().Header().Set(echo.HeaderContentType, "text/plain")
 		return c.NoContent(304)
 	}
 
@@ -1089,7 +1089,7 @@ func calculateConditionLevel(condition string) (string, error) {
 // ISUの性格毎の最新のコンディション情報
 func getTrend(c echo.Context) error {
 	res, err := trendResponseZTC()
-	
+
 	if err != nil {
 		c.Logger().Errorf("db error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
