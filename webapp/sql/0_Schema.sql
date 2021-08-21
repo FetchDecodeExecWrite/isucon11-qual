@@ -23,10 +23,10 @@ CREATE TABLE `isu_condition` (
   `condition` VARCHAR(255) NOT NULL,
   `message` VARCHAR(255) NOT NULL,
   `created_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
-  `cond_dirty` AS (FIND_IN_SET("is_dirty=true",condition)) STORED,
-  `cond_overweight` AS (FIND_IN_SET("is_overweight=true",condition)) STORED,
-  `cond_broken` AS (FIND_IN_SET("is_broken=true",condition)) STORED,
-  `cond_level` AS (cond_dirty + cond_overweight + cond_broken) STORED,
+  `cond_dirty` BOOLEAN AS (FIND_IN_SET("is_dirty=true",`condition`)) STORED,
+  `cond_overweight` BOOLEAN AS (FIND_IN_SET("is_overweight=true",`condition`)) STORED,
+  `cond_broken` BOOLEAN AS (FIND_IN_SET("is_broken=true",`condition`)) STORED,
+  `cond_level` TINYINT AS (cond_dirty + cond_overweight + cond_broken) STORED,
   PRIMARY KEY(`id`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4;
 
