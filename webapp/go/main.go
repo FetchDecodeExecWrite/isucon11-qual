@@ -1285,7 +1285,7 @@ func init() {
 	changedInsert = false
 	sqlStrInsert = "INSERT INTO `isu_condition`" +
 		"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`) VALUES "
-	valsInsert = make([]interface{}, 0)
+	valsInsert = []interface{}{}
 
 	go func() {
 		for true {
@@ -1299,7 +1299,7 @@ func init() {
 				}
 				sqlStrInsert = "INSERT INTO `isu_condition`" +
 					"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`) VALUES "
-				valsInsert = make([]interface{}, 0)
+				valsInsert = []interface{}{}
 				changedInsert = false
 				insertLock.Unlock()
 			}
