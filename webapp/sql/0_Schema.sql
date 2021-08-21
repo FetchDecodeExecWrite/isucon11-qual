@@ -28,7 +28,7 @@ CREATE TABLE `isu_condition` (
 
 CREATE TABLE `fresh_condition` (
   `jia_isu_uuid` CHAR(36) NOT NULL,
-  `timestamp` DATETIME NOT NULL,,
+  `timestamp` DATETIME NOT NULL,
   PRIMARY KEY(`jia_isu_uuid`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4;
 
