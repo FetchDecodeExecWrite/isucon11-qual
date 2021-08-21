@@ -90,6 +90,10 @@ type IsuCondition struct {
 	Condition  string    `db:"condition"`
 	Message    string    `db:"message"`
 	CreatedAt  time.Time `db:"created_at"`
+	CondDirty bool `db:"cond_dirty" json:"-"`
+	CondOverweight bool `db:"cond_overweight" json:"-"`
+	CondBroken bool `db:"cond_broken" json:"-"`
+	CondLevel int `db:"cond_level" json:"-"`
 }
 
 type MySQLConnectionEnv struct {
@@ -1017,20 +1021,52 @@ func getIsuConditionsFromDB(db *sqlx.DB, jiaIsuUUID string, endTime time.Time, c
 	conditions := []IsuCondition{}
 	var err error
 
+	var conditionStr string
+
+// 	case 0:
+		// conditionLevel = conditionLevelInfo
+	// case 1, 2:
+		// conditionLevel = conditionLevelWarning
+	// case 3:
+		// conditionLevel = conditionLevelCritical
+
+	_, hasInfo := conditionLevel[conditionLevelInfo]
+	_, hasWarning := conditionLevel[conditionLevelWarning]
+	_, hasCritical := conditionLevel[conditionLevelCritical]
+
+	switch {
+	case hasInfo && hasWarning && hasCritical:
+		conditionStr = "TRUE"
+	case hasInfo && hasWarning && !hasCritical:
+		conditionStr = "cond_level <= 2"
+	case hasInfo && !hasWarning && hasCritical:
+		conditionStr = "cond_level = 0 OR cond_level 3"
+	case hasInfo && !hasWarning && !hasCritical:
+		conditionStr = "cond_level = 0"
+	case !hasInfo && hasWarning && hasCritical:
+		conditionStr = "1 <= cond_level"
+	case !hasInfo && hasWarning && !hasCritical:
+		conditionStr = "1 <= cond_level AND cond_level <= 2"
+	case !hasInfo && !hasWarning && hasCritical:
+		conditionStr = "cond_level = 3"
+	case !hasInfo && !hasWarning && !hasCritical:
+		conditionStr = "FALSE"
+	}
+
 	if startTime.IsZero() {
 		err = db.Select(&conditions,
 			"SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ?"+
-				"	AND `timestamp` < ?"+
-				"	ORDER BY `timestamp` DESC",
-			jiaIsuUUID, endTime,
+				"	AND `timestamp` < ? AND (" + conditionStr + ")"+
+				"	ORDER BY `timestamp` DESC LIMIT ?",
+			jiaIsuUUID, endTime, limit,
 		)
 	} else {
 		err = db.Select(&conditions,
 			"SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ?"+
 				"	AND `timestamp` < ?"+
-				"	AND ? <= `timestamp`"+
-				"	ORDER BY `timestamp` DESC",
-			jiaIsuUUID, endTime, startTime,
+				"	AND ? <= `timestamp` AND (" + conditionStr + ")"+
+				"	ORDER BY `timestamp` DESC LIMIT ?",
+			jiaIsuUUID, endTime, startTime, limit,
 		)
 	}
 	if err != nil {
