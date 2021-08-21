@@ -93,6 +93,7 @@ type IsuCondition struct {
 	CondDirty bool `db:"cond_dirty" json:"-"`
 	CondOverweight bool `db:"cond_overweight" json:"-"`
 	CondBroken bool `db:"cond_broken" json:"-"`
+	CondLevel int `db:"cond_level" json:"-"`
 }
 
 type MySQLConnectionEnv struct {
