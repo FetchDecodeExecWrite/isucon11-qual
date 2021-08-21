@@ -705,7 +705,6 @@ func getIsuIcon(c echo.Context) error {
 	jiaIsuUUID := c.Param("jia_isu_uuid")
 
 	if c.Request().Header.Get("If-Modified-Since") != "" || c.Request().Header.Get("If-None-Match") != "" {
-		c.Response().Header().Set(echo.HeaderContentType, "text/plain")
 		return c.NoContent(304)
 	}
 
