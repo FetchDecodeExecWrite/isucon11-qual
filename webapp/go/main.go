@@ -1291,8 +1291,8 @@ func init() {
 		for true {
 			time.Sleep(50 * time.Millisecond)
 
-			insertLock.Lock()
 			if changedInsert {
+				insertLock.Lock()
 				_, err := db.Exec(sqlStrInsert, valsInsert...)
 				if err != nil {
 					fmt.Errorf("db error: %v", err)
@@ -1301,8 +1301,8 @@ func init() {
 					"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`) VALUES "
 				valsInsert = make([]interface{}, 0)
 				changedInsert = false
+				insertLock.Unlock()
 			}
-			insertLock.Unlock()
 		}
 	}()
 }
@@ -1351,8 +1351,7 @@ func postIsuCondition(c echo.Context) error {
 
 	go func() {
 		insertLock.Lock()
-		defer insertLock.Unlock()
-		changedInsert = true
+
 		for _, cond := range req {
 			timestamp := time.Unix(cond.Timestamp, 0)
 			if onlyInfo {
@@ -1361,8 +1360,14 @@ func postIsuCondition(c echo.Context) error {
 				}
 			}
 			valsInsert = append(valsInsert, jiaIsuUUID, timestamp, cond.IsSitting, cond.Condition, cond.Message)
-			sqlStrInsert += "(?, ?, ?, ?, ?),"
+			if !changedInsert {
+				changedInsert = true
+			} else {
+				sqlStrInsert += ","
+			}
+			sqlStrInsert += "(?, ?, ?, ?, ?)"
 		}
+		insertLock.Unlock()
 	}()
 
 	return c.NoContent(http.StatusAccepted)
