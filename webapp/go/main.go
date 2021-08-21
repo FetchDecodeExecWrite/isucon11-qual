@@ -83,17 +83,17 @@ type GetIsuListResponse struct {
 }
 
 type IsuCondition struct {
-	ID         int       `db:"id"`
-	JIAIsuUUID string    `db:"jia_isu_uuid"`
-	Timestamp  time.Time `db:"timestamp"`
-	IsSitting  bool      `db:"is_sitting"`
-	Condition  string    `db:"condition"`
-	Message    string    `db:"message"`
-	CreatedAt  time.Time `db:"created_at"`
-	CondDirty bool `db:"cond_dirty" json:"-"`
-	CondOverweight bool `db:"cond_overweight" json:"-"`
-	CondBroken bool `db:"cond_broken" json:"-"`
-	CondLevel int `db:"cond_level" json:"-"`
+	ID             int       `db:"id"`
+	JIAIsuUUID     string    `db:"jia_isu_uuid"`
+	Timestamp      time.Time `db:"timestamp"`
+	IsSitting      bool      `db:"is_sitting"`
+	Condition      string    `db:"condition"`
+	Message        string    `db:"message"`
+	CreatedAt      time.Time `db:"created_at"`
+	CondDirty      bool      `db:"cond_dirty" json:"-"`
+	CondOverweight bool      `db:"cond_overweight" json:"-"`
+	CondBroken     bool      `db:"cond_broken" json:"-"`
+	CondLevel      int       `db:"cond_level" json:"-"`
 }
 
 type MySQLConnectionEnv struct {
@@ -1023,12 +1023,12 @@ func getIsuConditionsFromDB(db *sqlx.DB, jiaIsuUUID string, endTime time.Time, c
 
 	var conditionStr string
 
-// 	case 0:
-		// conditionLevel = conditionLevelInfo
+	// 	case 0:
+	// conditionLevel = conditionLevelInfo
 	// case 1, 2:
-		// conditionLevel = conditionLevelWarning
+	// conditionLevel = conditionLevelWarning
 	// case 3:
-		// conditionLevel = conditionLevelCritical
+	// conditionLevel = conditionLevelCritical
 
 	_, hasInfo := conditionLevel[conditionLevelInfo]
 	_, hasWarning := conditionLevel[conditionLevelWarning]
@@ -1056,7 +1056,7 @@ func getIsuConditionsFromDB(db *sqlx.DB, jiaIsuUUID string, endTime time.Time, c
 	if startTime.IsZero() {
 		err = db.Select(&conditions,
 			"SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ?"+
-				"	AND `timestamp` < ? AND (" + conditionStr + ")"+
+				"	AND `timestamp` < ? AND ("+conditionStr+")"+
 				"	ORDER BY `timestamp` DESC LIMIT ?",
 			jiaIsuUUID, endTime, limit,
 		)
@@ -1064,7 +1064,7 @@ func getIsuConditionsFromDB(db *sqlx.DB, jiaIsuUUID string, endTime time.Time, c
 		err = db.Select(&conditions,
 			"SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ?"+
 				"	AND `timestamp` < ?"+
-				"	AND ? <= `timestamp` AND (" + conditionStr + ")"+
+				"	AND ? <= `timestamp` AND ("+conditionStr+")"+
 				"	ORDER BY `timestamp` DESC LIMIT ?",
 			jiaIsuUUID, endTime, startTime, limit,
 		)
@@ -1292,29 +1292,17 @@ func postIsuCondition(c echo.Context) error {
 		sqlStr += "(?, ?, ?, ?, ?)"
 	}
 
-	tx, err := db.Beginx()
+	var id int
+	err = db.Get(&id, "SELECT id FROM `isu` WHERE `jia_isu_uuid` = ? limit 1", jiaIsuUUID)
 	if err != nil {
-		c.Logger().Errorf("db error: %v", err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
-	defer tx.Rollback()
-
-	var count int
-	err = tx.Get(&count, "SELECT COUNT(*) FROM `isu` WHERE `jia_isu_uuid` = ?", jiaIsuUUID)
-	if err != nil {
-		c.Logger().Errorf("db error: %v", err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
-	if count == 0 {
-		return c.String(http.StatusNotFound, "not found: isu")
-	}
-	_, err = tx.Exec(sqlStr, vals...)
-	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return c.String(http.StatusNotFound, "not found: isu")
+		}
 		c.Logger().Errorf("db error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	err = tx.Commit()
+	_, err = db.Exec(sqlStr, vals...)
 	if err != nil {
 		c.Logger().Errorf("db error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
