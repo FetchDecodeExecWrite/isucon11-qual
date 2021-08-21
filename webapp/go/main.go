@@ -1289,7 +1289,7 @@ func postIsuCondition(c echo.Context) error {
 		return c.NoContent(http.StatusAccepted)
 	}
 
-	onlyInfoProbability := 0.5
+	onlyInfoProbability := 0.9
 	onlyInfo := rand.Float64() <= onlyInfoProbability
 
 	jiaIsuUUID := c.Param("jia_isu_uuid")
