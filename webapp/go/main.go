@@ -729,6 +729,8 @@ func getIsuIcon(c echo.Context) error {
 	return c.Blob(http.StatusOK, "", image)
 }
 
+var frozenGraphCache = make(map[string]map[time.Time][]GraphResponse)
+
 // GET /api/isu/:jia_isu_uuid/graph
 // ISUのコンディショングラフ描画のための情報を取得
 func getIsuGraph(c echo.Context) error {
@@ -788,6 +790,13 @@ func getIsuGraph(c echo.Context) error {
 
 // グラフのデータ点を一日分生成
 func generateIsuGraphResponse(tx *sqlx.Tx, jiaIsuUUID string, graphDate time.Time) ([]GraphResponse, error) {
+	if _, ok := frozenGraphCache[jiaIsuUUID]; !ok {
+		frozenGraphCache[jiaIsuUUID] = make(map[time.Time][]GraphResponse)
+	}
+	if res, ok := frozenGraphCache[jiaIsuUUID][graphDate]; ok {
+		return res, nil
+	}
+
 	dataPoints := []GraphDataPointWithInfo{}
 	conditionsInThisHour := []IsuCondition{}
 	timestampsInThisHour := []int64{}
@@ -888,6 +897,16 @@ func generateIsuGraphResponse(tx *sqlx.Tx, jiaIsuUUID string, graphDate time.Tim
 		responseList = append(responseList, resp)
 
 		thisTime = thisTime.Add(time.Hour)
+	}
+
+	var freshTimestamp time.Time
+	db.Get(
+		&freshTimestamp,
+		"SELECT timestamp FROM isu_condition WHERE jia_isu_uuid = ? ORDER BY timestamp DESC LIMIT 1",
+		jiaIsuUUID,
+	)
+	if graphDate.Before(freshTimestamp.Add(-36 * time.Hour)) {
+		frozenGraphCache[jiaIsuUUID][graphDate] = responseList
 	}
 
 	return responseList, nil
