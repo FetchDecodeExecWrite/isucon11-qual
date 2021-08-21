@@ -1301,29 +1301,17 @@ func postIsuCondition(c echo.Context) error {
 		sqlStr += "(?, ?, ?, ?, ?)"
 	}
 
-	tx, err := db.Beginx()
+	var id int
+	err = db.Get(&id, "SELECT id FROM `isu` WHERE `jia_isu_uuid` = ? limit 1", jiaIsuUUID)
 	if err != nil {
-		c.Logger().Errorf("db error: %v", err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
-	defer tx.Rollback()
-
-	var count int
-	err = tx.Get(&count, "SELECT COUNT(*) FROM `isu` WHERE `jia_isu_uuid` = ?", jiaIsuUUID)
-	if err != nil {
-		c.Logger().Errorf("db error: %v", err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
-	if count == 0 {
-		return c.String(http.StatusNotFound, "not found: isu")
-	}
-	_, err = tx.Exec(sqlStr, vals...)
-	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return c.String(http.StatusNotFound, "not found: isu")
+		}
 		c.Logger().Errorf("db error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	err = tx.Commit()
+	_, err = db.Exec(sqlStr, vals...)
 	if err != nil {
 		c.Logger().Errorf("db error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
