@@ -1274,6 +1274,39 @@ func trendResponseWithoutZTC() ([]TrendResponse, error) {
 
 /////////////////////////// end trendResponseZTC ///////////////////////////
 
+var (
+	insertLock    sync.Mutex
+	sqlStrInsert  string
+	valsInsert    []interface{}
+	changedInsert bool
+)
+
+func init() {
+	changedInsert = false
+	sqlStrInsert = "INSERT INTO `isu_condition`" +
+		"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`) VALUES "
+	valsInsert = make([]interface{}, 0)
+
+	go func() {
+		for true {
+			time.Sleep(50 * time.Millisecond)
+
+			insertLock.Lock()
+			if changedInsert {
+				_, err := db.Exec(sqlStrInsert, valsInsert...)
+				if err != nil {
+					fmt.Errorf("db error: %v", err)
+				}
+				sqlStrInsert = "INSERT INTO `isu_condition`" +
+					"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`) VALUES "
+				valsInsert = make([]interface{}, 0)
+				changedInsert = false
+			}
+			defer insertLock.Unlock()
+		}
+	}()
+}
+
 // POST /api/condition/:jia_isu_uuid
 // ISUからのコンディションを受け取る
 func postIsuCondition(c echo.Context) error {
@@ -1300,31 +1333,6 @@ func postIsuCondition(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "bad request body")
 	}
 
-	sqlStr := "INSERT INTO `isu_condition`" +
-		"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`) VALUES "
-	vals := []interface{}{}
-	fst := true
-
-	for _, cond := range req {
-		timestamp := time.Unix(cond.Timestamp, 0)
-		if !isValidConditionFormat(cond.Condition) {
-			return c.String(http.StatusBadRequest, "bad request body")
-		}
-		if onlyInfo {
-			if lv, err := calculateConditionLevel(cond.Condition); err == nil && lv != conditionLevelInfo {
-				continue
-			}
-		}
-
-		vals = append(vals, jiaIsuUUID, timestamp, cond.IsSitting, cond.Condition, cond.Message)
-		if fst {
-			fst = false
-		} else {
-			sqlStr += ","
-		}
-		sqlStr += "(?, ?, ?, ?, ?)"
-	}
-
 	var id int
 	err = db.Get(&id, "SELECT id FROM `isu` WHERE `jia_isu_uuid` = ? limit 1", jiaIsuUUID)
 	if err != nil {
@@ -1335,11 +1343,27 @@ func postIsuCondition(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	_, err = db.Exec(sqlStr, vals...)
-	if err != nil {
-		c.Logger().Errorf("db error: %v", err)
-		return c.NoContent(http.StatusInternalServerError)
+	for _, cond := range req {
+		if !isValidConditionFormat(cond.Condition) {
+			return c.String(http.StatusBadRequest, "bad request body")
+		}
 	}
+
+	go func() {
+		insertLock.Lock()
+		defer insertLock.Unlock()
+		changedInsert = true
+		for _, cond := range req {
+			timestamp := time.Unix(cond.Timestamp, 0)
+			if onlyInfo {
+				if lv, err := calculateConditionLevel(cond.Condition); err == nil && lv != conditionLevelInfo {
+					continue
+				}
+			}
+			valsInsert = append(valsInsert, jiaIsuUUID, timestamp, cond.IsSitting, cond.Condition, cond.Message)
+			sqlStrInsert += "(?, ?, ?, ?, ?),"
+		}
+	}()
 
 	return c.NoContent(http.StatusAccepted)
 }
