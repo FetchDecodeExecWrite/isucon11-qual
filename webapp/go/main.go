@@ -215,8 +215,8 @@ func init() {
 
 func main() {
 	e := echo.New()
-	e.Debug = false
-	e.Logger.SetLevel(log.OFF)
+	e.Debug = true
+	e.Logger.SetLevel(log.INFO)
 
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
