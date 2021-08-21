@@ -1209,6 +1209,7 @@ func trendResponseWithoutZTC() ([]TrendResponse, error) {
 
 	var eg errgroup.Group
 	for i := range characterList {
+		i := i
 		character := characterList[i]
 
 		eg.Go(func() error {
