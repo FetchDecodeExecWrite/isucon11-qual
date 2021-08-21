@@ -214,8 +214,8 @@ func init() {
 
 func main() {
 	e := echo.New()
-	e.Debug = true
-	e.Logger.SetLevel(log.DEBUG)
+	e.Debug = false
+	e.Logger.SetLevel(log.OFF)
 
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
@@ -245,11 +245,15 @@ func main() {
 	mySQLConnectionData = NewMySQLConnectionEnv()
 
 	var err error
-	db, err = mySQLConnectionData.ConnectDB()
-	if err != nil {
-		e.Logger.Fatalf("failed to connect db: %v", err)
-		return
+	for {
+		db, err = mySQLConnectionData.ConnectDB()
+		if err == nil {
+			break
+		}
+		e.Logger.Printf("conn DB connection failed : %v\n", err)
+		time.Sleep(1 * time.Second)
 	}
+
 	db.SetMaxOpenConns(10)
 	defer db.Close()
 
