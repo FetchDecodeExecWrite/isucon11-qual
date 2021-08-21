@@ -799,6 +799,7 @@ func generateIsuGraphResponse(tx *sqlx.Tx, jiaIsuUUID string, graphDate time.Tim
 		return nil, fmt.Errorf("db error: %v", err)
 	}
 
+	// truncatedConditionTime が等しい間単に追加し、変わる瞬間に calculateGraphDataPoint する
 	for rows.Next() {
 		err = rows.StructScan(&condition)
 		if err != nil {
@@ -894,28 +895,26 @@ func generateIsuGraphResponse(tx *sqlx.Tx, jiaIsuUUID string, graphDate time.Tim
 
 // 複数のISUのコンディションからグラフの一つのデータ点を計算
 func calculateGraphDataPoint(isuConditions []IsuCondition) (GraphDataPoint, error) {
-	conditionsCount := map[string]int{"is_broken": 0, "is_dirty": 0, "is_overweight": 0}
+	index_is_broken := 0
+	index_is_dirty := 1
+	index_is_overweight := 2
+
+	conditionsCount := make([]int, 3)
 	rawScore := 0
 	for _, condition := range isuConditions {
-		badConditionsCount := 0
-
-		if !isValidConditionFormat(condition.Condition) {
-			return GraphDataPoint{}, fmt.Errorf("invalid condition format")
+		if condition.CondBroken {
+			conditionsCount[index_is_broken]++
+		}
+		if condition.CondOverweight {
+			conditionsCount[index_is_overweight]++
+		}
+		if condition.CondDirty {
+			conditionsCount[index_is_dirty]++
 		}
 
-		for _, condStr := range strings.Split(condition.Condition, ",") {
-			keyValue := strings.Split(condStr, "=")
-
-			conditionName := keyValue[0]
-			if keyValue[1] == "true" {
-				conditionsCount[conditionName] += 1
-				badConditionsCount++
-			}
-		}
-
-		if badConditionsCount >= 3 {
+		if condition.CondLevel >= 3 {
 			rawScore += scoreConditionLevelCritical
-		} else if badConditionsCount >= 1 {
+		} else if condition.CondLevel >= 1 {
 			rawScore += scoreConditionLevelWarning
 		} else {
 			rawScore += scoreConditionLevelInfo
@@ -934,9 +933,9 @@ func calculateGraphDataPoint(isuConditions []IsuCondition) (GraphDataPoint, erro
 	score := rawScore * 100 / 3 / isuConditionsLength
 
 	sittingPercentage := sittingCount * 100 / isuConditionsLength
-	isBrokenPercentage := conditionsCount["is_broken"] * 100 / isuConditionsLength
-	isOverweightPercentage := conditionsCount["is_overweight"] * 100 / isuConditionsLength
-	isDirtyPercentage := conditionsCount["is_dirty"] * 100 / isuConditionsLength
+	isBrokenPercentage := conditionsCount[index_is_broken] * 100 / isuConditionsLength
+	isOverweightPercentage := conditionsCount[index_is_overweight] * 100 / isuConditionsLength
+	isDirtyPercentage := conditionsCount[index_is_dirty] * 100 / isuConditionsLength
 
 	dataPoint := GraphDataPoint{
 		Score: score,
