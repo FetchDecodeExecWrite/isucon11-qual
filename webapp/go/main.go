@@ -21,7 +21,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
-	echopprof "github.com/hiko1129/echo-pprof"
+	// echopprof "github.com/hiko1129/echo-pprof"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -259,7 +259,7 @@ func main() {
 		return
 	}
 
-	echopprof.Wrap(e)
+	// echopprof.Wrap(e)
 
 	serverPort := fmt.Sprintf(":%v", getEnv("SERVER_APP_PORT", "3000"))
 	e.Logger.Fatal(e.Start(serverPort))
