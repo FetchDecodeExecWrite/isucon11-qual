@@ -1302,7 +1302,7 @@ func init() {
 				valsInsert = make([]interface{}, 0)
 				changedInsert = false
 			}
-			defer insertLock.Unlock()
+			insertLock.Unlock()
 		}
 	}()
 }
