@@ -1264,11 +1264,14 @@ func trendResponseWithoutZTC() ([]TrendResponse, error) {
 // ISUからのコンディションを受け取る
 func postIsuCondition(c echo.Context) error {
 	// TODO: 一定割合リクエストを落としてしのぐようにしたが、本来は全量さばけるようにすべき
-	dropProbability := 0.9
+	dropProbability := 0.5
 	if rand.Float64() <= dropProbability {
 		c.Logger().Warnf("drop post isu condition request")
 		return c.NoContent(http.StatusAccepted)
 	}
+
+	onlyInfoProbability := 0.8
+	onlyInfo := rand.Float64() <= onlyInfoProbability
 
 	jiaIsuUUID := c.Param("jia_isu_uuid")
 	if jiaIsuUUID == "" {
@@ -1293,6 +1296,12 @@ func postIsuCondition(c echo.Context) error {
 		if !isValidConditionFormat(cond.Condition) {
 			return c.String(http.StatusBadRequest, "bad request body")
 		}
+		if onlyInfo {
+			if lv, err := calculateConditionLevel(cond.Condition); err == nil && lv != conditionLevelInfo {
+				continue
+			}
+		}
+
 		vals = append(vals, jiaIsuUUID, timestamp, cond.IsSitting, cond.Condition, cond.Message)
 		if fst {
 			fst = false
