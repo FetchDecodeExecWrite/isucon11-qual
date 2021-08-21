@@ -799,6 +799,7 @@ func generateIsuGraphResponse(tx *sqlx.Tx, jiaIsuUUID string, graphDate time.Tim
 		return nil, fmt.Errorf("db error: %v", err)
 	}
 
+	// truncatedConditionTime が等しい間単に追加し、変わる瞬間に calculateGraphDataPoint する
 	for rows.Next() {
 		err = rows.StructScan(&condition)
 		if err != nil {
@@ -897,25 +898,34 @@ func calculateGraphDataPoint(isuConditions []IsuCondition) (GraphDataPoint, erro
 	conditionsCount := map[string]int{"is_broken": 0, "is_dirty": 0, "is_overweight": 0}
 	rawScore := 0
 	for _, condition := range isuConditions {
-		badConditionsCount := 0
+		// badConditionsCount := 0
 
-		if !isValidConditionFormat(condition.Condition) {
-			return GraphDataPoint{}, fmt.Errorf("invalid condition format")
+		// if !isValidConditionFormat(condition.Condition) {
+		// 	return GraphDataPoint{}, fmt.Errorf("invalid condition format")
+		// }
+
+		// for _, condStr := range strings.Split(condition.Condition, ",") {
+		// 	keyValue := strings.Split(condStr, "=")
+
+		// 	conditionName := keyValue[0]
+		// 	if keyValue[1] == "true" {
+		// 		conditionsCount[conditionName] += 1
+		// 		badConditionsCount++
+		// 	}
+		// }
+		if condition.CondDirty {
+			conditionsCount["is_broken"]++
+		}
+		if condition.CondOverweight {
+			conditionsCount["is_overweight"]++
+		}
+		if condition.CondBroken {
+			conditionsCount["is_dirty"]++
 		}
 
-		for _, condStr := range strings.Split(condition.Condition, ",") {
-			keyValue := strings.Split(condStr, "=")
-
-			conditionName := keyValue[0]
-			if keyValue[1] == "true" {
-				conditionsCount[conditionName] += 1
-				badConditionsCount++
-			}
-		}
-
-		if badConditionsCount >= 3 {
+		if condition.CondLevel >= 3 {
 			rawScore += scoreConditionLevelCritical
-		} else if badConditionsCount >= 1 {
+		} else if condition.CondLevel >= 1 {
 			rawScore += scoreConditionLevelWarning
 		} else {
 			rawScore += scoreConditionLevelInfo
