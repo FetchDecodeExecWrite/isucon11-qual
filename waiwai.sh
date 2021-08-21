@@ -19,3 +19,4 @@ for i in 1 2 3; do echo "- isu$i build..."; ssh isu$i -- "source ~/bashrc2 && cd
 
 for i in 1 2 3; do ssh isu$i -- "sudo systemctl stop isucondition.go.service"; done
 for i in 1 2 3; do ssh isu$i -- "sudo systemctl start isucondition.go.service"; done
+for i in 1 2 3; do ssh isu$i -- "sudo systemctl restart nginx"; done

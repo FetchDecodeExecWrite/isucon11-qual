@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -1087,11 +1088,61 @@ func calculateConditionLevel(condition string) (string, error) {
 // GET /api/trend
 // ISUの性格毎の最新のコンディション情報
 func getTrend(c echo.Context) error {
-	characterList := []Isu{}
-	err := db.Select(&characterList, "SELECT `character` FROM `isu` GROUP BY `character`")
+	res, err := trendResponseZTC()
+	
 	if err != nil {
 		c.Logger().Errorf("db error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
+	} else {
+		return c.JSON(http.StatusOK, res)
+	}
+}
+
+/////////////////////////// begin trendResponseZTC ///////////////////////////
+
+// 置換:
+//   trendResponse → 関数名
+//   []TrendResponse{} → 戻り値の型のerrorじゃない方
+//    → param list (例: `i int32, j string`)
+//    → arg list (例: `i, j`)
+var (
+	trendResponseZTCDelay  = 100 * time.Millisecond // 入れなくても良いが、入れることでより多くの呼び出しをまとめられるかも
+	trendResponseZTCLock   sync.Mutex
+	trendResponseZTCTime   time.Time
+	trendResponseZTCResult []TrendResponse
+	trendResponseZTCError  error
+)
+
+// Zero Time Cache ≒ value-returning throttle
+//   throttleで「無視」される呼び出しAが、直前の「無視」されなかった呼び出しBを待ち、Bの結果をAも結果として返す。
+func trendResponseZTC() ([]TrendResponse, error) {
+	t := time.Now()
+	trendResponseZTCLock.Lock()
+	// defer trendResponseZTCLock.Unlock()
+
+	if trendResponseZTCTime.After(t) {
+		trendResponseZTCLock.Unlock() // deferの代わり
+		return trendResponseZTCResult, trendResponseZTCError
+	}
+
+	if trendResponseZTCDelay > 0 {
+		time.Sleep(trendResponseZTCDelay)
+	}
+	trendResponseZTCTime = time.Now() // これを本体の処理より上に書く！ (当然) (Sleepよりは後でいい)
+
+	trendResponseZTCResult, trendResponseZTCError = trendResponseWithoutZTC()
+
+	trendResponseZTCLock.Unlock() // deferの代わり
+	return trendResponseZTCResult, trendResponseZTCError
+}
+
+// 本体の処理
+// trendResponseZTC経由の呼び出しは排他制御が保証されているが、ほかの関数との兼ね合いで内部で別のmutexを使うこともある
+func trendResponseWithoutZTC() ([]TrendResponse, error) {
+	characterList := []Isu{}
+	err := db.Select(&characterList, "SELECT `character` FROM `isu` GROUP BY `character`")
+	if err != nil {
+		return nil, err
 	}
 
 	res := []TrendResponse{}
@@ -1103,8 +1154,7 @@ func getTrend(c echo.Context) error {
 			character.Character,
 		)
 		if err != nil {
-			c.Logger().Errorf("db error: %v", err)
-			return c.NoContent(http.StatusInternalServerError)
+			return nil, err
 		}
 
 		characterInfoIsuConditions := []*TrendCondition{}
@@ -1117,16 +1167,14 @@ func getTrend(c echo.Context) error {
 				isu.JIAIsuUUID,
 			)
 			if err != nil {
-				c.Logger().Errorf("db error: %v", err)
-				return c.NoContent(http.StatusInternalServerError)
+				return nil, err
 			}
 
 			if len(conditions) > 0 {
 				isuLastCondition := conditions[0]
 				conditionLevel, err := calculateConditionLevel(isuLastCondition.Condition)
 				if err != nil {
-					c.Logger().Error(err)
-					return c.NoContent(http.StatusInternalServerError)
+					return nil, err
 				}
 				trendCondition := TrendCondition{
 					ID:        isu.ID,
@@ -1162,8 +1210,10 @@ func getTrend(c echo.Context) error {
 			})
 	}
 
-	return c.JSON(http.StatusOK, res)
+	return res, nil
 }
+
+/////////////////////////// end trendResponseZTC ///////////////////////////
 
 // POST /api/condition/:jia_isu_uuid
 // ISUからのコンディションを受け取る
