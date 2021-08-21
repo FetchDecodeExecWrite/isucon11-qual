@@ -703,6 +703,13 @@ func getIsuIcon(c echo.Context) error {
 
 	jiaIsuUUID := c.Param("jia_isu_uuid")
 
+	c.Response().Header().Set("Cache-Control", "public, must-revalidate, proxy-revalidate, max-age=10000000")
+	c.Response().Header().Set("ETag", jiaIsuUUID)
+	c.Response().Header().Set("Last-Modified", "Mon, 16 Oct 2020 16:33:02 GMT")
+	if c.Request().Header.Get("If-Modified-Since") != "" || c.Request().Header.Get("If-None-Match") != "" {
+		return c.NoContent(304)
+	}
+
 	var image []byte
 	err = db.Get(&image, "SELECT `image` FROM `isu` WHERE `jia_user_id` = ? AND `jia_isu_uuid` = ?",
 		jiaUserID, jiaIsuUUID)
@@ -715,7 +722,6 @@ func getIsuIcon(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	c.Response().Header().Set("Cache-Control", "public, must-revalidate, proxy-revalidate, max-age=10000000")
 	return c.Blob(http.StatusOK, "", image)
 }
 
