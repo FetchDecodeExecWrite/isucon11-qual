@@ -83,17 +83,17 @@ type GetIsuListResponse struct {
 }
 
 type IsuCondition struct {
-	ID         int       `db:"id"`
-	JIAIsuUUID string    `db:"jia_isu_uuid"`
-	Timestamp  time.Time `db:"timestamp"`
-	IsSitting  bool      `db:"is_sitting"`
-	Condition  string    `db:"condition"`
-	Message    string    `db:"message"`
-	CreatedAt  time.Time `db:"created_at"`
-	CondDirty bool `db:"cond_dirty" json:"-"`
-	CondOverweight bool `db:"cond_overweight" json:"-"`
-	CondBroken bool `db:"cond_broken" json:"-"`
-	CondLevel int `db:"cond_level" json:"-"`
+	ID             int       `db:"id"`
+	JIAIsuUUID     string    `db:"jia_isu_uuid"`
+	Timestamp      time.Time `db:"timestamp"`
+	IsSitting      bool      `db:"is_sitting"`
+	Condition      string    `db:"condition"`
+	Message        string    `db:"message"`
+	CreatedAt      time.Time `db:"created_at"`
+	CondDirty      bool      `db:"cond_dirty" json:"-"`
+	CondOverweight bool      `db:"cond_overweight" json:"-"`
+	CondBroken     bool      `db:"cond_broken" json:"-"`
+	CondLevel      int       `db:"cond_level" json:"-"`
 }
 
 type MySQLConnectionEnv struct {
@@ -1023,12 +1023,12 @@ func getIsuConditionsFromDB(db *sqlx.DB, jiaIsuUUID string, endTime time.Time, c
 
 	var conditionStr string
 
-// 	case 0:
-		// conditionLevel = conditionLevelInfo
+	// 	case 0:
+	// conditionLevel = conditionLevelInfo
 	// case 1, 2:
-		// conditionLevel = conditionLevelWarning
+	// conditionLevel = conditionLevelWarning
 	// case 3:
-		// conditionLevel = conditionLevelCritical
+	// conditionLevel = conditionLevelCritical
 
 	_, hasInfo := conditionLevel[conditionLevelInfo]
 	_, hasWarning := conditionLevel[conditionLevelWarning]
@@ -1056,7 +1056,7 @@ func getIsuConditionsFromDB(db *sqlx.DB, jiaIsuUUID string, endTime time.Time, c
 	if startTime.IsZero() {
 		err = db.Select(&conditions,
 			"SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ?"+
-				"	AND `timestamp` < ? AND (" + conditionStr + ")"+
+				"	AND `timestamp` < ? AND ("+conditionStr+")"+
 				"	ORDER BY `timestamp` DESC LIMIT ?",
 			jiaIsuUUID, endTime, limit,
 		)
@@ -1064,7 +1064,7 @@ func getIsuConditionsFromDB(db *sqlx.DB, jiaIsuUUID string, endTime time.Time, c
 		err = db.Select(&conditions,
 			"SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ?"+
 				"	AND `timestamp` < ?"+
-				"	AND ? <= `timestamp` AND (" + conditionStr + ")"+
+				"	AND ? <= `timestamp` AND ("+conditionStr+")"+
 				"	ORDER BY `timestamp` DESC LIMIT ?",
 			jiaIsuUUID, endTime, startTime, limit,
 		)
@@ -1254,11 +1254,14 @@ func trendResponseWithoutZTC() ([]TrendResponse, error) {
 // ISUからのコンディションを受け取る
 func postIsuCondition(c echo.Context) error {
 	// TODO: 一定割合リクエストを落としてしのぐようにしたが、本来は全量さばけるようにすべき
-	dropProbability := 0.9
+	dropProbability := 0.5
 	if rand.Float64() <= dropProbability {
 		c.Logger().Warnf("drop post isu condition request")
 		return c.NoContent(http.StatusAccepted)
 	}
+
+	onlyInfoProbability := 0.8
+	onlyInfo := rand.Float64() <= onlyInfoProbability
 
 	jiaIsuUUID := c.Param("jia_isu_uuid")
 	if jiaIsuUUID == "" {
@@ -1283,6 +1286,12 @@ func postIsuCondition(c echo.Context) error {
 		if !isValidConditionFormat(cond.Condition) {
 			return c.String(http.StatusBadRequest, "bad request body")
 		}
+		if onlyInfo {
+			if lv, err := calculateConditionLevel(cond.Condition); err == nil && lv != conditionLevelInfo {
+				continue
+			}
+		}
+
 		vals = append(vals, jiaIsuUUID, timestamp, cond.IsSitting, cond.Condition, cond.Message)
 		if fst {
 			fst = false
