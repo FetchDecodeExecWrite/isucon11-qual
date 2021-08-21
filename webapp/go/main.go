@@ -715,6 +715,7 @@ func getIsuIcon(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	c.Response().Header().Set("Cache-Control", "public, must-revalidate, proxy-revalidate, max-age=10000000")
 	return c.Blob(http.StatusOK, "", image)
 }
 
