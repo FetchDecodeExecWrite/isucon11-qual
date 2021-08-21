@@ -707,10 +707,7 @@ func getIsuIcon(c echo.Context) error {
 
 	jiaIsuUUID := c.Param("jia_isu_uuid")
 
-	c.Response().Header().Set("Cache-Control", "public, must-revalidate, proxy-revalidate, max-age=10000000")
-	c.Response().Header().Set("ETag", jiaIsuUUID)
 	if c.Request().Header.Get("If-Modified-Since") != "" || c.Request().Header.Get("If-None-Match") != "" {
-		c.Response().Header().Set(echo.HeaderContentType, "text/plain")
 		return c.NoContent(304)
 	}
 
@@ -726,6 +723,8 @@ func getIsuIcon(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	c.Response().Header().Set("Cache-Control", "public, must-revalidate, proxy-revalidate, max-age=10000000")
+	c.Response().Header().Set("ETag", jiaIsuUUID)
 	return c.Blob(http.StatusOK, "", image)
 }
 
