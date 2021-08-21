@@ -86,6 +86,7 @@ type IsuCondition struct {
 	ID             int       `db:"id"`
 	JIAIsuUUID     string    `db:"jia_isu_uuid"`
 	Timestamp      time.Time `db:"timestamp"`
+	NegTimestamp   int64     `db:"neg_timestamp" json:"-"`
 	IsSitting      bool      `db:"is_sitting"`
 	Condition      string    `db:"condition"`
 	Message        string    `db:"message"`
@@ -1080,16 +1081,16 @@ func getIsuConditionsFromDB(db *sqlx.DB, jiaIsuUUID string, endTime time.Time, c
 	if startTime.IsZero() {
 		err = db.Select(&conditions,
 			"SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ?"+
-				"	AND `timestamp` < ? AND ("+conditionStr+")"+
-				"	ORDER BY `timestamp` DESC LIMIT ?",
+				"	AND `neg_timestamp` > (10000000000 - UNIX_TIMESTAMP(?)) AND ("+conditionStr+")"+
+				"	ORDER BY `neg_timestamp` ASC LIMIT ?",
 			jiaIsuUUID, endTime, limit,
 		)
 	} else {
 		err = db.Select(&conditions,
 			"SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ?"+
-				"	AND `timestamp` < ?"+
-				"	AND ? <= `timestamp` AND ("+conditionStr+")"+
-				"	ORDER BY `timestamp` DESC LIMIT ?",
+				"	AND `neg_timestamp` > (10000000000 - UNIX_TIMESTAMP(?))"+
+				"	AND (10000000000 - UNIX_TIMESTAMP(?)) >= `neg_timestamp` AND ("+conditionStr+")"+
+				"	ORDER BY `neg_timestamp` ASC LIMIT ?",
 			jiaIsuUUID, endTime, startTime, limit,
 		)
 	}
