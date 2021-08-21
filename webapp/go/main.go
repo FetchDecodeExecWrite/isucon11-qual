@@ -1106,7 +1106,8 @@ func getTrend(c echo.Context) error {
 		for _, isu := range isuList {
 			conditions := []IsuCondition{}
 			err = db.Select(&conditions,
-				"SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ? ORDER BY timestamp DESC LIMIT 1",
+				`SELECT isu_condition.* FROM isu_condition INNER JOIN fresh_condition
+					ON fresh_condition.jia_isu_uuid = ? AND fresh_condition.timestamp = isu_condition.timestamp`,
 				isu.JIAIsuUUID,
 			)
 			if err != nil {
@@ -1210,6 +1211,15 @@ func postIsuCondition(c echo.Context) error {
 				"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`)"+
 				"	VALUES (?, ?, ?, ?, ?)",
 			jiaIsuUUID, timestamp, cond.IsSitting, cond.Condition, cond.Message)
+		if err != nil {
+			c.Logger().Errorf("db error: %v", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+
+		_, err = tx.Exec(
+			`INSERT INTO fresh_condition (jia_isu_uuid, timestamp) VALUES (?, ?)
+				ON DUPLICATE KEY UPDATE timestamp=?`,
+			jiaIsuUUID, timestamp, timestamp)
 		if err != nil {
 			c.Logger().Errorf("db error: %v", err)
 			return c.NoContent(http.StatusInternalServerError)
